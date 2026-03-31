@@ -1,0 +1,27 @@
+{
+  "name": "@pylon-sync/provider-s3",
+  "version": "0.0.1",
+  "description": "S3-compatible storage provider for pylon-sync",
+  "type": "module",
+  "license": "MIT",
+  "author": "Martin Garcia",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/magarcia/pylon-sync.git",
+    "directory": "packages/provider-s3"
+  },
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pylon-sync/core": "workspace:*",
+    "aws4fetch": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

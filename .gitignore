@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.js.map
+/main.js
+packages/obsidian-plugin/main.js
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.project/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Claude Code
+.claude/settings.local.json
+
+# Misc
+repomix-output.xml
+coverage/
+*.log

@@ -1,0 +1,32 @@
+{
+	"name": "@pylon-sync/cli",
+	"version": "0.0.1",
+	"description": "CLI companion for pylon-sync",
+	"type": "module",
+	"license": "MIT",
+	"author": "Martin Garcia",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/magarcia/pylon-sync.git",
+		"directory": "packages/cli"
+	},
+	"bin": {
+		"pylon": "src/main.ts"
+	},
+	"scripts": {
+		"test": "vitest run --passWithNoTests",
+		"build": "tsc",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@pylon-sync/core": "workspace:*",
+		"@pylon-sync/provider-github": "workspace:*",
+		"cac": "^7.0.0",
+		"cross-keychain": "^1.1.0"
+	},
+	"devDependencies": {
+		"@types/node": "^20.0.0",
+		"typescript": "^5.7.0",
+		"vitest": "^3.0.0"
+	}
+}

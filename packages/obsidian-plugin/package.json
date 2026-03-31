@@ -1,0 +1,32 @@
+{
+	"name": "pylon-sync",
+	"version": "0.0.1",
+	"description": "Obsidian plugin for syncing your vault to GitHub or S3",
+	"main": "main.js",
+	"license": "MIT",
+	"author": "Martin Garcia",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/magarcia/pylon-sync.git",
+		"directory": "packages/obsidian-plugin"
+	},
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "node esbuild.config.mjs production",
+		"test": "vitest run --passWithNoTests",
+		"test:watch": "vitest",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@pylon-sync/core": "workspace:*",
+		"@pylon-sync/provider-github": "workspace:*",
+		"@pylon-sync/provider-s3": "workspace:*"
+	},
+	"devDependencies": {
+		"builtin-modules": "^4.0.0",
+		"esbuild": "^0.25.0",
+		"obsidian": "^1.7.0",
+		"typescript": "^5.7.0",
+		"vitest": "^3.0.0"
+	}
+}

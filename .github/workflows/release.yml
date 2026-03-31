@@ -1,0 +1,55 @@
+name: Release Obsidian Plugin
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm -r run typecheck
+
+      - name: Test
+        run: pnpm -r test
+
+      - name: Build plugin
+        run: cd packages/obsidian-plugin && node esbuild.config.mjs production
+
+      - name: Validate version
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          manifest_version=$(jq -r '.version' packages/obsidian-plugin/manifest.json)
+          if [ "$tag" != "$manifest_version" ]; then
+            echo "::error::Tag '$tag' does not match manifest.json version '$manifest_version'"
+            exit 1
+          fi
+
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          gh release create "$tag" \
+            --title "v$tag" \
+            --generate-notes \
+            packages/obsidian-plugin/main.js \
+            packages/obsidian-plugin/manifest.json \
+            packages/obsidian-plugin/styles.css

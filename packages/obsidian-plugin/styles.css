@@ -1,0 +1,8 @@
+.github-sync-ribbon-syncing svg {
+  animation: github-sync-spin 1s linear infinite;
+}
+
+@keyframes github-sync-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

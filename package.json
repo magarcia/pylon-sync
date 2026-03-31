@@ -1,0 +1,31 @@
+{
+	"name": "pylon-sync",
+	"private": true,
+	"description": "Sync files to GitHub — Obsidian plugin and CLI",
+	"scripts": {
+		"test": "pnpm -r test",
+		"typecheck": "pnpm -r run typecheck",
+		"build": "pnpm -r run build",
+		"version-bump": "node scripts/version-bump.mjs",
+		"release": "node scripts/version-bump.mjs"
+	},
+	"keywords": [
+		"obsidian",
+		"github",
+		"sync",
+		"pylon"
+	],
+	"author": "Martin Garcia",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/magarcia/pylon-sync.git"
+	},
+	"packageManager": "pnpm@10.28.0",
+	"engines": {
+		"node": ">=20"
+	},
+	"devDependencies": {
+		"@vitest/coverage-v8": "^3.2.4"
+	}
+}
