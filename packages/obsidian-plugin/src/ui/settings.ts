@@ -269,10 +269,14 @@ export class PylonSyncSettingTab extends PluginSettingTab {
           .setPlaceholder(".claude\n.github\n.gitignore")
           .setValue(this.plugin.settings.includePaths.join("\n"))
           .onChange(async (value) => {
-            this.plugin.settings.includePaths = value
-              .split("\n")
-              .map((p) => p.trim())
-              .filter((p) => p.length > 0);
+            this.plugin.settings.includePaths = [
+              ...new Set(
+                value
+                  .split("\n")
+                  .map((p) => p.trim().replace(/^\.\//, "").replace(/\/+$/, ""))
+                  .filter((p) => p.length > 0),
+              ),
+            ];
             await this.plugin.saveSettings();
           }),
       );

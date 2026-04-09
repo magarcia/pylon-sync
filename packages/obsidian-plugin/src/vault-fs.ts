@@ -33,30 +33,30 @@ export class VaultFileSystem implements FileSystem {
       }
     }
 
-    // Walk dot-directories specified in includePaths via adapter
+    // Walk directories/files specified in includePaths via adapter
     const walked = new Set<string>(this.syncObsidianSettings ? [".obsidian"] : []);
     for (const inc of this.includePaths) {
-      const root = inc.split("/")[0]!;
-      if (!root.startsWith(".") || walked.has(root)) continue;
-      walked.add(root);
-      try {
-        const extra = await this.walkAdapter(root);
-        entries.push(...extra);
-      } catch {
-        // directory may not exist
-      }
-    }
+      if (inc.length === 0 || inc.includes("..") || inc.startsWith("/") || inc.includes("\0")) continue;
+      if (inc.startsWith(".trash")) continue;
 
-    // Include root-level dotfiles specified in includePaths
-    for (const inc of this.includePaths) {
-      if (inc.includes("/") || !inc.startsWith(".")) continue;
+      // Skip if already covered by a previously walked parent
+      const alreadyCovered = [...walked].some(w => inc === w || inc.startsWith(w + "/"));
+      if (alreadyCovered) continue;
+      walked.add(inc);
+
       try {
-        const stat = await this.vault.adapter.stat(inc);
-        if (stat && stat.type === "file") {
-          entries.push({ path: inc, mtime: stat.mtime, size: stat.size });
+        const extra = await this.walkAdapter(inc);
+        if (extra.length > 0) {
+          entries.push(...extra);
+        } else {
+          // Empty walk result: might be a single file rather than a directory
+          const stat = await this.vault.adapter.stat(inc);
+          if (stat && stat.type === "file") {
+            entries.push({ path: inc, mtime: stat.mtime, size: stat.size });
+          }
         }
       } catch {
-        // file may not exist
+        // directory/file may not exist
       }
     }
 

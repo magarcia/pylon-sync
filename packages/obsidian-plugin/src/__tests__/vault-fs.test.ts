@@ -101,6 +101,56 @@ describe("VaultFileSystem", () => {
       expect(entries.map((e) => e.path)).toContain(".claude/foo.md");
     });
 
+    it("with includePaths should walk nested dot-directories", async () => {
+      (vault as any)._seed({ "notes/hello.md": "hi" });
+      (vault.adapter as any)._seed({
+        "notes/.claude/memory.md": "memory",
+      });
+
+      const includeFs = new VaultFileSystem(vault, false, ["notes/.claude"]);
+      const entries = await includeFs.list();
+
+      const paths = entries.map((e) => e.path);
+      expect(paths).toContain("notes/hello.md");
+      expect(paths).toContain("notes/.claude/memory.md");
+    });
+
+    it("with includePaths should skip .trash even if listed", async () => {
+      (vault as any)._seed({ "note.md": "content" });
+      (vault.adapter as any)._seed({
+        ".trash/deleted.md": "gone",
+      });
+
+      const includeFs = new VaultFileSystem(vault, false, [".trash"]);
+      const entries = await includeFs.list();
+
+      expect(entries.map((e) => e.path)).toEqual(["note.md"]);
+    });
+
+    it("with includePaths should skip entries with path traversal", async () => {
+      (vault as any)._seed({ "note.md": "content" });
+
+      const includeFs = new VaultFileSystem(vault, false, ["../escape", "..\x00bad"]);
+      const entries = await includeFs.list();
+
+      expect(entries.map((e) => e.path)).toEqual(["note.md"]);
+    });
+
+    it("with includePaths should not duplicate when child is covered by parent", async () => {
+      (vault as any)._seed({ "note.md": "content" });
+      (vault.adapter as any)._seed({
+        ".claude/CLAUDE.md": "rules",
+        ".claude/rules/common.md": "common",
+      });
+
+      const includeFs = new VaultFileSystem(vault, false, [".claude", ".claude/rules"]);
+      const entries = await includeFs.list();
+
+      const claudeFiles = entries.filter((e) => e.path.startsWith(".claude/"));
+      const uniquePaths = new Set(claudeFiles.map((e) => e.path));
+      expect(uniquePaths.size).toBe(claudeFiles.length);
+    });
+
     it("with includePaths should silently skip nonexistent directories", async () => {
       (vault as any)._seed({ "note.md": "content" });
 
