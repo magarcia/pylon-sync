@@ -207,9 +207,10 @@ export class DataAdapter {
     const prefix = folder === "/" || folder === "" ? "" : folder + "/";
     for (const key of this.data.keys()) {
       if (key.startsWith(prefix)) {
-        files.push(key);
         const parts = key.slice(prefix.length).split("/");
-        if (parts.length > 1) {
+        if (parts.length === 1) {
+          files.push(key);
+        } else {
           folders.add(prefix + parts[0]);
         }
       }

@@ -21,6 +21,7 @@ export async function scan(
   forceFullScan: boolean,
   ignorePatterns: string[],
   syncObsidianSettings: boolean,
+  includePaths: string[] = [],
 ): Promise<ChangeSet> {
   const added = new Map<string, FileState>();
   const modified = new Map<string, FileState>();
@@ -28,7 +29,7 @@ export async function scan(
 
   const allFiles = await fs.list();
   const trackedFiles = allFiles.filter((f) =>
-    isTrackedPath(f.path, ignorePatterns, syncObsidianSettings),
+    isTrackedPath(f.path, ignorePatterns, syncObsidianSettings, includePaths),
   );
 
   const trackedPaths = new Set<string>();

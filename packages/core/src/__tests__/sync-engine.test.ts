@@ -404,6 +404,7 @@ describe("SyncEngine", () => {
       true,
       settings.ignorePatterns,
       settings.syncObsidianSettings,
+      settings.includePaths,
     );
   });
 

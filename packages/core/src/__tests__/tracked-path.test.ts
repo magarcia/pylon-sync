@@ -126,4 +126,51 @@ describe("isTrackedPath", () => {
       expect(isTrackedPath("notes/hello.md", [], syncOff)).toBe(true);
     });
   });
+
+  describe("includePaths", () => {
+    it("should allow root dotfiles when listed in includePaths", () => {
+      expect(isTrackedPath(".gitignore", noIgnore, syncOff, [".gitignore"])).toBe(true);
+    });
+
+    it("should allow dot-directory files when directory is in includePaths", () => {
+      expect(isTrackedPath(".claude/CLAUDE.md", noIgnore, syncOff, [".claude"])).toBe(true);
+    });
+
+    it("should allow deeply nested files in included dot-directory", () => {
+      expect(isTrackedPath(".claude/rules/common.md", noIgnore, syncOff, [".claude"])).toBe(true);
+    });
+
+    it("should allow nested dot-directories when listed in includePaths", () => {
+      expect(isTrackedPath("notes/.claude/memory.md", noIgnore, syncOff, [".claude"])).toBe(true);
+    });
+
+    it("should still reject dotfiles not in includePaths", () => {
+      expect(isTrackedPath(".secret", noIgnore, syncOff, [".claude"])).toBe(false);
+    });
+
+    it("should still reject dot-directories not in includePaths", () => {
+      expect(isTrackedPath(".git/config", noIgnore, syncOff, [".claude"])).toBe(false);
+    });
+
+    it("should still reject .trash/ even if in includePaths", () => {
+      expect(isTrackedPath(".trash/deleted.md", noIgnore, syncOff, [".trash"])).toBe(false);
+    });
+
+    it("should respect ignore patterns over includePaths", () => {
+      expect(isTrackedPath(".claude/temp.log", ["**/*.log"], syncOff, [".claude"])).toBe(false);
+    });
+
+    it("should work with multiple include paths", () => {
+      expect(isTrackedPath(".claude/foo.md", noIgnore, syncOff, [".github", ".claude"])).toBe(true);
+      expect(isTrackedPath(".github/workflows/ci.yml", noIgnore, syncOff, [".github", ".claude"])).toBe(true);
+    });
+
+    it("should not affect normal file tracking", () => {
+      expect(isTrackedPath("notes/hello.md", noIgnore, syncOff, [".claude"])).toBe(true);
+    });
+
+    it("should handle empty includePaths", () => {
+      expect(isTrackedPath(".claude/foo.md", noIgnore, syncOff, [])).toBe(false);
+    });
+  });
 });

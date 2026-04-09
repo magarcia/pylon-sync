@@ -76,6 +76,7 @@ export class SyncEngine {
         forceFullScan,
         this.settings.ignorePatterns,
         this.settings.syncObsidianSettings,
+        this.settings.includePaths,
       );
 
       const localChangeCount = localChanges.added.size + localChanges.modified.size + localChanges.deleted.length;
@@ -223,7 +224,7 @@ export class SyncEngine {
   private filterRemoteChanges(remote: ChangeSet): void {
     const filter = (map: Map<string, FileState>) => {
       for (const path of [...map.keys()]) {
-        if (!isTrackedPath(path, this.settings.ignorePatterns, this.settings.syncObsidianSettings)) {
+        if (!isTrackedPath(path, this.settings.ignorePatterns, this.settings.syncObsidianSettings, this.settings.includePaths)) {
           map.delete(path);
         }
       }
@@ -231,7 +232,7 @@ export class SyncEngine {
     filter(remote.added);
     filter(remote.modified);
     remote.deleted = remote.deleted.filter(
-      p => isTrackedPath(p, this.settings.ignorePatterns, this.settings.syncObsidianSettings)
+      p => isTrackedPath(p, this.settings.ignorePatterns, this.settings.syncObsidianSettings, this.settings.includePaths)
     );
   }
 

@@ -95,6 +95,7 @@ export interface SyncSettings {
   debounceMs: number;
   syncObsidianSettings: boolean;
   ignorePatterns: string[];
+  includePaths: string[];
   binaryConflict: "local" | "remote" | "newest";
   fullScanInterval: number;
 }
@@ -152,6 +153,7 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   debounceMs: 30000,
   syncObsidianSettings: false,
   ignorePatterns: [],
+  includePaths: [],
   binaryConflict: "newest",
   fullScanInterval: 50,
 };

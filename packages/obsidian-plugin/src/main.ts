@@ -223,7 +223,7 @@ export default class PylonSyncPlugin extends Plugin {
     log("initSync — provider:", this.settings.provider);
     this.teardownSync();
 
-    const vaultFs = new VaultFileSystem(this.app.vault, this.settings.syncObsidianSettings);
+    const vaultFs = new VaultFileSystem(this.app.vault, this.settings.syncObsidianSettings, this.settings.includePaths);
     const provider = this.createProvider();
 
     this.syncEngine = new SyncEngine(

@@ -260,6 +260,28 @@ export class PylonSyncSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Include hidden paths")
+      .setDesc(
+        "Dot-files or dot-folders normally hidden from Obsidian to include in sync (one per line)",
+      )
+      .addTextArea((text) =>
+        text
+          .setPlaceholder(".claude\n.github\n.gitignore")
+          .setValue(this.plugin.settings.includePaths.join("\n"))
+          .onChange(async (value) => {
+            this.plugin.settings.includePaths = [
+              ...new Set(
+                value
+                  .split("\n")
+                  .map((p) => p.trim().replace(/^\.\//, "").replace(/\/+$/, ""))
+                  .filter((p) => p.length > 0),
+              ),
+            ];
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName("Binary conflict resolution")
       .setDesc("How to resolve conflicts for binary files")
       .addDropdown((dropdown) =>
