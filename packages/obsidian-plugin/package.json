@@ -1,6 +1,6 @@
 {
 	"name": "pylon-sync",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "Obsidian plugin for syncing your vault to GitHub or S3",
 	"main": "main.js",
 	"license": "MIT",

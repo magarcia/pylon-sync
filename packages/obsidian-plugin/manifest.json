@@ -1,7 +1,7 @@
 {
 	"id": "pylon-sync",
 	"name": "Pylon Sync",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"minAppVersion": "1.5.0",
 	"description": "Sync your vault to GitHub using the API directly — works on desktop and mobile",
 	"author": "Martin Garcia",
