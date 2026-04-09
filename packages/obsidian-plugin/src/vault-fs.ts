@@ -2,7 +2,11 @@ import type { Vault, TFile } from "obsidian";
 import type { FileSystem, FileEntry } from "@pylon-sync/core";
 
 export class VaultFileSystem implements FileSystem {
-  constructor(private vault: Vault, private syncObsidianSettings: boolean = false) {}
+  constructor(
+    private vault: Vault,
+    private syncObsidianSettings: boolean = false,
+    private includePaths: string[] = [],
+  ) {}
 
   private validatePath(path: string): void {
     if (path.includes("..") || path.startsWith("/") || path.includes("\0")) {
@@ -26,6 +30,33 @@ export class VaultFileSystem implements FileSystem {
         entries.push(...obsidianFiles);
       } catch {
         // .obsidian/ directory may not exist or be accessible
+      }
+    }
+
+    // Walk dot-directories specified in includePaths via adapter
+    const walked = new Set<string>(this.syncObsidianSettings ? [".obsidian"] : []);
+    for (const inc of this.includePaths) {
+      const root = inc.split("/")[0]!;
+      if (!root.startsWith(".") || walked.has(root)) continue;
+      walked.add(root);
+      try {
+        const extra = await this.walkAdapter(root);
+        entries.push(...extra);
+      } catch {
+        // directory may not exist
+      }
+    }
+
+    // Include root-level dotfiles specified in includePaths
+    for (const inc of this.includePaths) {
+      if (inc.includes("/") || !inc.startsWith(".")) continue;
+      try {
+        const stat = await this.vault.adapter.stat(inc);
+        if (stat && stat.type === "file") {
+          entries.push({ path: inc, mtime: stat.mtime, size: stat.size });
+        }
+      } catch {
+        // file may not exist
       }
     }
 

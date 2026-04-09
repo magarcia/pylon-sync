@@ -12,15 +12,31 @@ function matchesIgnorePattern(path: string, ignorePatterns: string[]): boolean {
   if (ignorePatterns !== cachedPatterns) {
     cachedPatterns = ignorePatterns;
     cachedMatcher =
-      ignorePatterns.length > 0 ? picomatch(ignorePatterns) : null;
+      ignorePatterns.length > 0 ? picomatch(ignorePatterns, { dot: true }) : null;
   }
   return cachedMatcher ? cachedMatcher(path) : false;
+}
+
+function matchesIncludePath(path: string, includePaths: string[]): boolean {
+  for (const inc of includePaths) {
+    if (inc.length === 0) continue;
+    // Exact match for root dotfiles (e.g., ".gitignore")
+    if (path === inc) return true;
+    // Directory prefix match (e.g., ".claude" matches ".claude/foo.md")
+    if (path.startsWith(inc + "/")) return true;
+    // Nested dot-directory match (e.g., "notes/.claude" matches "notes/.claude/foo.md")
+    if (path.includes("/" + inc + "/")) return true;
+    // Nested exact file match (e.g., "notes/.gitignore")
+    if (path.endsWith("/" + inc)) return true;
+  }
+  return false;
 }
 
 export function isTrackedPath(
   path: string,
   ignorePatterns: string[],
   syncObsidianSettings: boolean,
+  includePaths: string[] = [],
 ): boolean {
   // .trash/ is always excluded
   if (path.startsWith(".trash/")) return false;
@@ -35,10 +51,14 @@ export function isTrackedPath(
   }
 
   // Dotfiles at root (starts with ".")
-  if (path.startsWith(".")) return false;
+  if (path.startsWith(".")) {
+    if (!matchesIncludePath(path, includePaths)) return false;
+  }
 
   // Dot-directories anywhere in path
-  if (path.includes("/.")) return false;
+  if (path.includes("/.")) {
+    if (!matchesIncludePath(path, includePaths)) return false;
+  }
 
   if (matchesIgnorePattern(path, ignorePatterns)) return false;
 

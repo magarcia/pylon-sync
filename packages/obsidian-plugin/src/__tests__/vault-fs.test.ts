@@ -55,6 +55,60 @@ describe("VaultFileSystem", () => {
       const paths = entries.map((e) => e.path);
       expect(paths).toEqual(["note.md"]);
     });
+
+    it("with includePaths should list dot-directory files via adapter", async () => {
+      (vault as any)._seed({ "note.md": "content" });
+      (vault.adapter as any)._seed({
+        ".claude/CLAUDE.md": "# rules",
+        ".claude/rules/common.md": "common rules",
+      });
+
+      const includeFs = new VaultFileSystem(vault, false, [".claude"]);
+      const entries = await includeFs.list();
+
+      const paths = entries.map((e) => e.path).sort();
+      expect(paths).toContain("note.md");
+      expect(paths).toContain(".claude/CLAUDE.md");
+      expect(paths).toContain(".claude/rules/common.md");
+    });
+
+    it("with includePaths should list root dotfiles via adapter", async () => {
+      (vault as any)._seed({ "note.md": "content" });
+      (vault.adapter as any)._seed({
+        ".gitignore": "node_modules",
+      });
+
+      const includeFs = new VaultFileSystem(vault, false, [".gitignore"]);
+      const entries = await includeFs.list();
+
+      const paths = entries.map((e) => e.path);
+      expect(paths).toContain("note.md");
+      expect(paths).toContain(".gitignore");
+    });
+
+    it("with includePaths should not duplicate .obsidian when syncObsidianSettings is also true", async () => {
+      (vault as any)._seed({ "note.md": "content" });
+      (vault.adapter as any)._seed({
+        ".obsidian/app.json": '{"theme":"dark"}',
+        ".claude/foo.md": "bar",
+      });
+
+      const includeFs = new VaultFileSystem(vault, true, [".obsidian", ".claude"]);
+      const entries = await includeFs.list();
+
+      const obsidianCount = entries.filter((e) => e.path === ".obsidian/app.json").length;
+      expect(obsidianCount).toBe(1);
+      expect(entries.map((e) => e.path)).toContain(".claude/foo.md");
+    });
+
+    it("with includePaths should silently skip nonexistent directories", async () => {
+      (vault as any)._seed({ "note.md": "content" });
+
+      const includeFs = new VaultFileSystem(vault, false, [".nonexistent"]);
+      const entries = await includeFs.list();
+
+      expect(entries.map((e) => e.path)).toEqual(["note.md"]);
+    });
   });
 
   describe("readText", () => {

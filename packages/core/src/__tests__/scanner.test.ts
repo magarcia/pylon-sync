@@ -143,6 +143,25 @@ describe("scan", () => {
     expect(result.modified.size).toBe(0);
     expect(result.deleted).toEqual([]);
   });
+
+  it("should include dot-directory files when listed in includePaths", async () => {
+    fs.seed(
+      {
+        "notes/a.md": "tracked",
+        ".claude/CLAUDE.md": "rules",
+        ".git/config": "git config",
+      },
+      1000,
+    );
+    const snapshot: Record<string, SnapshotEntry> = {};
+
+    const result = await scan(fs, snapshot, 0, false, defaultIgnore, syncObsidianSettings, [".claude"]);
+
+    expect(result.added.size).toBe(2);
+    expect(result.added.has("notes/a.md")).toBe(true);
+    expect(result.added.has(".claude/CLAUDE.md")).toBe(true);
+    expect(result.added.has(".git/config")).toBe(false);
+  });
 });
 
 describe("readFileState", () => {
