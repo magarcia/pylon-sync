@@ -4,7 +4,7 @@ import type { FileSystem, FileEntry } from "@pylon-sync/core";
 export class VaultFileSystem implements FileSystem {
   constructor(
     private vault: Vault,
-    private syncObsidianSettings: boolean = false,
+    private syncVaultConfig: boolean = false,
     private includePaths: string[] = [],
   ) {}
 
@@ -23,8 +23,8 @@ export class VaultFileSystem implements FileSystem {
       size: f.stat.size,
     }));
 
-    // If syncObsidianSettings is enabled, also list .obsidian/ files via adapter
-    if (this.syncObsidianSettings) {
+    // If syncVaultConfig is enabled, also list .obsidian/ files via adapter
+    if (this.syncVaultConfig) {
       try {
         const obsidianFiles = await this.walkAdapter(".obsidian");
         entries.push(...obsidianFiles);
@@ -34,7 +34,7 @@ export class VaultFileSystem implements FileSystem {
     }
 
     // Walk directories/files specified in includePaths via adapter
-    const walked = new Set<string>(this.syncObsidianSettings ? [".obsidian"] : []);
+    const walked = new Set<string>(this.syncVaultConfig ? [".obsidian"] : []);
     for (const inc of this.includePaths) {
       if (inc.length === 0 || inc.includes("..") || inc.startsWith("/") || inc.includes("\0")) continue;
       if (inc.startsWith(".trash")) continue;

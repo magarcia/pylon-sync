@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { MockFileSystem } from "./mock-fs";
 import { scan, readFileState } from "../scanner";
 import { hashText, hashBuffer } from "../hash";
-import type { SnapshotEntry } from "../types";
+import type { SnapshotEntry, SyncSettings } from "../types";
+import { DEFAULT_SYNC_SETTINGS } from "../types";
 
 let fs: MockFileSystem;
 
@@ -11,14 +12,13 @@ beforeEach(() => {
 });
 
 describe("scan", () => {
-  const defaultIgnore: string[] = [];
-  const syncObsidianSettings = false;
+  const defaultSettings: SyncSettings = { ...DEFAULT_SYNC_SETTINGS };
 
   it("should detect added files (in vault, not in snapshot)", async () => {
     fs.seed({ "notes/a.md": "hello", "notes/b.md": "world" }, 1000);
     const snapshot: Record<string, SnapshotEntry> = {};
 
-    const result = await scan(fs, snapshot, 0, false, defaultIgnore, syncObsidianSettings);
+    const result = await scan(fs, snapshot, 0, false, defaultSettings);
 
     expect(result.added.size).toBe(2);
     expect(result.added.has("notes/a.md")).toBe(true);
@@ -34,7 +34,7 @@ describe("scan", () => {
       "notes/a.md": { hash: oldHash, mtime: 1000 },
     };
 
-    const result = await scan(fs, snapshot, 0, true, defaultIgnore, syncObsidianSettings);
+    const result = await scan(fs, snapshot, 0, true, defaultSettings);
 
     expect(result.modified.size).toBe(1);
     expect(result.modified.has("notes/a.md")).toBe(true);
@@ -50,7 +50,7 @@ describe("scan", () => {
       "notes/gone.md": { hash: "sha256-abc", mtime: 1000 },
     };
 
-    const result = await scan(fs, snapshot, 0, false, defaultIgnore, syncObsidianSettings);
+    const result = await scan(fs, snapshot, 0, false, defaultSettings);
 
     expect(result.deleted).toEqual(["notes/gone.md"]);
     expect(result.added.size).toBe(0);
@@ -64,7 +64,7 @@ describe("scan", () => {
       "notes/a.md": { hash, mtime: 1000 },
     };
 
-    const result = await scan(fs, snapshot, 2000, false, defaultIgnore, syncObsidianSettings);
+    const result = await scan(fs, snapshot, 2000, false, defaultSettings);
 
     expect(result.modified.size).toBe(0);
     expect(result.added.size).toBe(0);
@@ -77,7 +77,7 @@ describe("scan", () => {
       "notes/a.md": { hash: oldHash, mtime: 1000 },
     };
 
-    const result = await scan(fs, snapshot, 2000, false, defaultIgnore, syncObsidianSettings);
+    const result = await scan(fs, snapshot, 2000, false, defaultSettings);
 
     expect(result.modified.size).toBe(1);
     expect(result.modified.has("notes/a.md")).toBe(true);
@@ -90,7 +90,7 @@ describe("scan", () => {
       "notes/a.md": { hash: oldHash, mtime: 500 },
     };
 
-    const result = await scan(fs, snapshot, 2000, true, defaultIgnore, syncObsidianSettings);
+    const result = await scan(fs, snapshot, 2000, true, defaultSettings);
 
     expect(result.modified.size).toBe(1);
     expect(result.modified.has("notes/a.md")).toBe(true);
@@ -108,7 +108,7 @@ describe("scan", () => {
     );
     const snapshot: Record<string, SnapshotEntry> = {};
 
-    const result = await scan(fs, snapshot, 0, false, defaultIgnore, syncObsidianSettings);
+    const result = await scan(fs, snapshot, 0, false, defaultSettings);
 
     expect(result.added.size).toBe(1);
     expect(result.added.has("notes/a.md")).toBe(true);
@@ -119,7 +119,7 @@ describe("scan", () => {
       "notes/a.md": { hash: "sha256-abc", mtime: 1000 },
     };
 
-    const result = await scan(fs, snapshot, 0, false, defaultIgnore, syncObsidianSettings);
+    const result = await scan(fs, snapshot, 0, false, defaultSettings);
 
     expect(result.added.size).toBe(0);
     expect(result.modified.size).toBe(0);
@@ -137,7 +137,7 @@ describe("scan", () => {
     );
     const snapshot: Record<string, SnapshotEntry> = {};
 
-    const result = await scan(fs, snapshot, 0, false, defaultIgnore, syncObsidianSettings);
+    const result = await scan(fs, snapshot, 0, false, defaultSettings);
 
     expect(result.added.size).toBe(3);
     expect(result.modified.size).toBe(0);
@@ -155,7 +155,7 @@ describe("scan", () => {
     );
     const snapshot: Record<string, SnapshotEntry> = {};
 
-    const result = await scan(fs, snapshot, 0, false, defaultIgnore, syncObsidianSettings, [".claude"]);
+    const result = await scan(fs, snapshot, 0, false, { ...defaultSettings, includePaths: [".claude"] });
 
     expect(result.added.size).toBe(2);
     expect(result.added.has("notes/a.md")).toBe(true);

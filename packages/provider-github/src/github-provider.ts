@@ -10,6 +10,7 @@ import type {
   SyncCursor,
 } from "@pylon-sync/core";
 import { PushConflictError, classifyContent, resolveCommitMessage } from "@pylon-sync/core";
+import type { TokenProvider } from "@pylon-sync/auth-github";
 import { GitHubApiError } from "./errors";
 import { sleep } from "./sleep";
 import { unzip } from "fflate";
@@ -41,19 +42,27 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 
 type TreeEntry = { path: string; type: string; sha: string };
 
+export interface GitHubProviderConfig {
+  // Either a PAT string or a refreshable token provider (for GitHub App OAuth).
+  auth: TokenProvider;
+  repo: string;
+  branch: string;
+  commitMessage?: string;
+  // Custom GitHub host. Defaults to "github.com". For GHES use the hostname
+  // without scheme, e.g. "ghes.example.com".
+  host?: string;
+}
+
 export class GitHubProvider implements Provider {
   private api: GitHubApi;
   private owner: string;
   private repo: string;
   private branch: string;
-  private token: string;
+  private auth: TokenProvider;
   private commitMessage: string;
   private cachedUsername: string | null = null;
 
-  constructor(
-    config: { token: string; repo: string; branch: string; commitMessage?: string },
-    http: HttpClient,
-  ) {
+  constructor(config: GitHubProviderConfig, http: HttpClient) {
     const [owner, repo] = config.repo.split("/");
     if (!owner || !repo || !/^[a-zA-Z0-9._-]+$/.test(owner) || !/^[a-zA-Z0-9._-]+$/.test(repo)) {
       throw new Error(`Invalid repository format: "${config.repo}". Expected "owner/repo".`);
@@ -64,9 +73,9 @@ export class GitHubProvider implements Provider {
     this.owner = owner;
     this.repo = repo;
     this.branch = config.branch;
-    this.token = config.token;
+    this.auth = config.auth;
     this.commitMessage = config.commitMessage ?? "vault: sync";
-    this.api = new GitHubApi(http);
+    this.api = new GitHubApi(http, config.host);
   }
 
   async fetch(cursor?: SyncCursor, localPaths?: Set<string>): Promise<FetchResult> {
@@ -83,7 +92,7 @@ export class GitHubProvider implements Provider {
     const branchRes = await this.api.rest(
       "GET",
       `/repos/${this.owner}/${this.repo}/branches/${this.branch}`,
-      this.token,
+      this.auth,
     );
 
     if (branchRes.status === 404 || branchRes.status === 409) {
@@ -114,7 +123,7 @@ export class GitHubProvider implements Provider {
     const oldCommitRes = await this.api.rest(
       "GET",
       `/repos/${this.owner}/${this.repo}/git/commits/${lastCommitSha}`,
-      this.token,
+      this.auth,
     );
     if (oldCommitRes.status === 404) {
       return this.fetchFullTree({}, headSha, treeSha, localPaths);
@@ -125,12 +134,12 @@ export class GitHubProvider implements Provider {
       this.api.rest(
         "GET",
         `/repos/${this.owner}/${this.repo}/git/trees/${oldTreeSha}?recursive=1`,
-        this.token,
+        this.auth,
       ),
       this.api.rest(
         "GET",
         `/repos/${this.owner}/${this.repo}/git/trees/${treeSha}?recursive=1`,
-        this.token,
+        this.auth,
       ),
     ]);
 
@@ -213,7 +222,7 @@ export class GitHubProvider implements Provider {
         const blobRes = await this.api.rest(
           "POST",
           `/repos/${this.owner}/${this.repo}/git/blobs`,
-          this.token,
+          this.auth,
           { content: arrayBufferToBase64(content), encoding: "base64" },
         );
         const blobData = blobRes.json as { sha: string };
@@ -240,7 +249,7 @@ export class GitHubProvider implements Provider {
     const treeRes = await this.api.rest(
       "POST",
       `/repos/${this.owner}/${this.repo}/git/trees`,
-      this.token,
+      this.auth,
       { base_tree: treeSha, tree: treeEntries },
     );
     const newTreeSha = (treeRes.json as { sha: string }).sha;
@@ -251,7 +260,7 @@ export class GitHubProvider implements Provider {
     const commitRes = await this.api.rest(
       "POST",
       `/repos/${this.owner}/${this.repo}/git/commits`,
-      this.token,
+      this.auth,
       { message: resolveCommitMessage(this.commitMessage), tree: newTreeSha, parents: [headSha] },
     );
     const newCommitSha = (commitRes.json as { sha: string }).sha;
@@ -264,7 +273,7 @@ export class GitHubProvider implements Provider {
       const refRes = await this.api.rest(
         "PATCH",
         `/repos/${this.owner}/${this.repo}/git/refs/heads/${this.branch}`,
-        this.token,
+        this.auth,
         { sha: newCommitSha, force: false },
       );
       console.log("[GitHubProvider] Ref update response — status:", refRes.status, "body:", JSON.stringify(refRes.json).slice(0, 200));
@@ -277,7 +286,7 @@ export class GitHubProvider implements Provider {
       const headRes = await this.api.rest(
         "GET",
         `/repos/${this.owner}/${this.repo}/branches/${this.branch}`,
-        this.token,
+        this.auth,
       );
 
       if (headRes.status === 404) {
@@ -285,7 +294,7 @@ export class GitHubProvider implements Provider {
         await this.api.rest(
           "POST",
           `/repos/${this.owner}/${this.repo}/git/refs`,
-          this.token,
+          this.auth,
           { ref: `refs/heads/${this.branch}`, sha: newCommitSha },
         );
         return { commitSha: newCommitSha, treeSha: newTreeSha };
@@ -318,13 +327,13 @@ export class GitHubProvider implements Provider {
     const res = await this.api.rest(
       "GET",
       `/repos/${this.owner}/${this.repo}`,
-      this.token,
+      this.auth,
     );
 
     if (res.status !== 404) return;
 
     if (!this.cachedUsername) {
-      const userRes = await this.api.rest("GET", "/user", this.token);
+      const userRes = await this.api.rest("GET", "/user", this.auth);
       this.cachedUsername = (userRes.json as { login: string }).login;
     }
 
@@ -337,7 +346,7 @@ export class GitHubProvider implements Provider {
       `[GitHubProvider] Creating ${isOrg ? "org" : "user"} repository: ${this.owner}/${this.repo}`,
     );
 
-    const createRes = await this.api.rest("POST", createUrl, this.token, {
+    const createRes = await this.api.rest("POST", createUrl, this.auth, {
       name: this.repo,
       private: true,
       auto_init: false,
@@ -348,7 +357,7 @@ export class GitHubProvider implements Provider {
       const retryRes = await this.api.rest(
         "GET",
         `/repos/${this.owner}/${this.repo}`,
-        this.token,
+        this.auth,
       );
       if (retryRes.status === 404) {
         throw new GitHubApiError(
@@ -371,7 +380,7 @@ export class GitHubProvider implements Provider {
     await this.api.rest(
       "PUT",
       `/repos/${this.owner}/${this.repo}/contents/.gitkeep`,
-      this.token,
+      this.auth,
       { message: "Initialize repository", content: btoa(""), branch: this.branch },
     );
 
@@ -380,7 +389,7 @@ export class GitHubProvider implements Provider {
     const branchRes = await this.api.rest(
       "GET",
       `/repos/${this.owner}/${this.repo}/branches/${this.branch}`,
-      this.token,
+      this.auth,
     );
 
     if (branchRes.status === 404 || branchRes.status === 409) {
@@ -402,7 +411,7 @@ export class GitHubProvider implements Provider {
     const res = await this.api.rest(
       "GET",
       `/repos/${this.owner}/${this.repo}/contents/${encodeGitHubPath(path)}?ref=${ghCursor.commitSha}`,
-      this.token,
+      this.auth,
       undefined,
       { Accept: "application/vnd.github.raw+json" },
     );
@@ -430,7 +439,7 @@ export class GitHubProvider implements Provider {
   private async downloadArchive(ref: string): Promise<Map<string, ArrayBuffer>> {
     const MAX_DECOMPRESSED_SIZE = 500 * 1024 * 1024; // 500MB
 
-    const arrayBuffer = await this.api.downloadZip(this.owner, this.repo, ref, this.token);
+    const arrayBuffer = await this.api.downloadZip(this.owner, this.repo, ref, this.auth);
     const zip = await new Promise<Record<string, Uint8Array>>((resolve, reject) => {
       unzip(new Uint8Array(arrayBuffer), (err, data) => {
         if (err) reject(err);
@@ -473,7 +482,7 @@ export class GitHubProvider implements Provider {
     const treeRes = await this.api.rest(
       "GET",
       `/repos/${this.owner}/${this.repo}/git/trees/${treeSha}?recursive=1`,
-      this.token,
+      this.auth,
     );
 
     const treeData = treeRes.json as { tree: TreeEntry[]; truncated?: boolean };
@@ -531,7 +540,7 @@ export class GitHubProvider implements Provider {
       const treeRes = await this.api.rest(
         "GET",
         `/repos/${this.owner}/${this.repo}/git/trees/${treeSha}?recursive=1`,
-        this.token,
+        this.auth,
       );
       const treeData = treeRes.json as { tree: TreeEntry[]; truncated?: boolean };
       if (treeData.truncated) {
@@ -591,7 +600,7 @@ export class GitHubProvider implements Provider {
     const res = await this.api.rest(
       "GET",
       `/repos/${this.owner}/${this.repo}/contents/${encodeGitHubPath(path)}?ref=${ref}`,
-      this.token,
+      this.auth,
       undefined,
       { Accept: "application/vnd.github.raw+json" },
     );

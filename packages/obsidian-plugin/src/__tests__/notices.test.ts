@@ -4,6 +4,7 @@ import type { SyncResult, FileMutation } from "@pylon-sync/core";
 import {
   showSyncResult,
   showAuthError,
+  showPermissionError,
   showRateLimitError,
   showSyncConflictWarning,
 } from "../ui/notices";
@@ -123,6 +124,16 @@ describe("notices", () => {
 
       expect(notices).toHaveLength(1);
       expect(notices[0]!.message).toContain("Obsidian Sync");
+    });
+  });
+
+  describe("showPermissionError", () => {
+    it("should mention write access and be persistent", () => {
+      showPermissionError();
+
+      expect(notices).toHaveLength(1);
+      expect(notices[0]!.message).toContain("write access");
+      expect(Notice).toHaveBeenCalledWith(expect.any(String), 0);
     });
   });
 });

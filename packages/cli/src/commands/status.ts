@@ -1,4 +1,4 @@
-import { scan } from "@pylon-sync/core";
+import { scan, DEFAULT_SYNC_SETTINGS } from "@pylon-sync/core";
 import { NodeFileSystem } from "../node-fs";
 import { loadConfig, loadData } from "../config";
 
@@ -19,8 +19,7 @@ export async function statusCommand(
     data.snapshot,
     data.lastSyncTime,
     false,
-    [],
-    false,
+    DEFAULT_SYNC_SETTINGS,
   );
 
   const total =

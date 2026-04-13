@@ -402,9 +402,7 @@ describe("SyncEngine", () => {
       pluginData.snapshot,
       pluginData.lastSyncTime,
       true,
-      settings.ignorePatterns,
-      settings.syncObsidianSettings,
-      settings.includePaths,
+      settings,
     );
   });
 

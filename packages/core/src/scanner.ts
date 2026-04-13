@@ -1,4 +1,4 @@
-import type { FileSystem, FileEntry, ChangeSet, FileState, SnapshotEntry } from "./types";
+import type { FileSystem, FileEntry, ChangeSet, FileState, SnapshotEntry, SyncSettings } from "./types";
 import { hashText } from "./hash";
 import { isTrackedPath } from "./tracked-path";
 import { classifyContent } from "./classify";
@@ -19,9 +19,7 @@ export async function scan(
   snapshot: Record<string, SnapshotEntry>,
   lastSyncTime: number,
   forceFullScan: boolean,
-  ignorePatterns: string[],
-  syncObsidianSettings: boolean,
-  includePaths: string[] = [],
+  settings: SyncSettings,
 ): Promise<ChangeSet> {
   const added = new Map<string, FileState>();
   const modified = new Map<string, FileState>();
@@ -29,7 +27,7 @@ export async function scan(
 
   const allFiles = await fs.list();
   const trackedFiles = allFiles.filter((f) =>
-    isTrackedPath(f.path, ignorePatterns, syncObsidianSettings, includePaths),
+    isTrackedPath(f.path, settings),
   );
 
   const trackedPaths = new Set<string>();

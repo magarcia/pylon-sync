@@ -76,9 +76,19 @@ export type ProviderType = "github" | "s3";
 export type S3Service = "aws" | "cloudflare-r2" | "minio" | "backblaze-b2" | "custom";
 
 // Plugin settings (single repo per vault)
+export type GitHubAuthMethod = "github-app" | "pat";
+
 export interface SyncSettings {
   provider: ProviderType;
   // GitHub
+  githubAuthMethod: GitHubAuthMethod;
+  // Hostname for the GitHub instance. "github.com" for cloud, any other value
+  // for GHES or data-residency instances. Only PAT auth is supported on
+  // non-github.com hosts unless a custom clientId is provided.
+  githubHost: string;
+  // Optional custom GitHub App client_id for users who register their own
+  // GitHub App on a GHES instance. Unlocks device flow on non-github.com hosts.
+  githubCustomClientId: string;
   githubRepo: string;
   branch: string;
   commitMessage: string;
@@ -93,11 +103,25 @@ export interface SyncSettings {
   autoSync: boolean;
   pollIntervalMs: number;
   debounceMs: number;
-  syncObsidianSettings: boolean;
   ignorePatterns: string[];
   includePaths: string[];
   binaryConflict: "local" | "remote" | "newest";
   fullScanInterval: number;
+  // Selective sync — file types
+  syncImages: boolean;
+  syncAudio: boolean;
+  syncVideos: boolean;
+  syncPDFs: boolean;
+  syncAllOtherTypes: boolean;
+  // Vault configuration sync — granular .obsidian/ toggles
+  syncMainSettings: boolean;
+  syncAppearanceSettings: boolean;
+  syncThemesAndSnippets: boolean;
+  syncHotkeys: boolean;
+  syncActiveCorePluginList: boolean;
+  syncCorePluginSettings: boolean;
+  syncActiveCommunityPluginList: boolean;
+  syncInstalledCommunityPlugins: boolean;
 }
 
 // Sync result — returned after each sync cycle
@@ -137,6 +161,9 @@ export interface PluginData {
 export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   provider: "github",
   // GitHub
+  githubAuthMethod: "github-app",
+  githubHost: "github.com",
+  githubCustomClientId: "",
   githubRepo: "",
   branch: "main",
   commitMessage: "vault: sync",
@@ -151,11 +178,25 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
   autoSync: true,
   pollIntervalMs: 300000,
   debounceMs: 30000,
-  syncObsidianSettings: false,
   ignorePatterns: [],
   includePaths: [],
   binaryConflict: "newest",
   fullScanInterval: 50,
+  // Selective sync — file types (all on by default)
+  syncImages: true,
+  syncAudio: true,
+  syncVideos: true,
+  syncPDFs: true,
+  syncAllOtherTypes: true,
+  // Vault configuration sync (all off by default)
+  syncMainSettings: false,
+  syncAppearanceSettings: false,
+  syncThemesAndSnippets: false,
+  syncHotkeys: false,
+  syncActiveCorePluginList: false,
+  syncCorePluginSettings: false,
+  syncActiveCommunityPluginList: false,
+  syncInstalledCommunityPlugins: false,
 };
 
 // Provider errors

@@ -54,7 +54,7 @@ export async function syncCommand(
 
   const provider = new GitHubProvider(
     {
-      token,
+      auth: token,
       repo: config.repo,
       branch: config.branch,
       commitMessage,

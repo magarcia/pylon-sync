@@ -28,7 +28,7 @@ function createProvider(overrides?: { owner?: string; repo?: string }) {
   const owner = overrides?.owner ?? "owner";
   const repo = overrides?.repo ?? "repo";
   return new GitHubProvider(
-    { token: "ghp_test", repo: `${owner}/${repo}`, branch: "main" },
+    { auth: "ghp_test", repo: `${owner}/${repo}`, branch: "main" },
     mockHttp,
   );
 }
@@ -514,7 +514,7 @@ describe("GitHubProvider", () => {
       vi.setSystemTime(new Date("2026-03-15T10:30:00.000Z"));
 
       const provider = new GitHubProvider(
-        { token: "ghp_test", repo: "owner/repo", branch: "main", commitMessage: "sync {{date}}" },
+        { auth: "ghp_test", repo: "owner/repo", branch: "main", commitMessage: "sync {{date}}" },
         mockHttp,
       );
 

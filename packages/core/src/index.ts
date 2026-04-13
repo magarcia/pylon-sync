@@ -2,7 +2,7 @@ export * from "./types";
 export { hashBuffer, hashText, gitBlobSha, gitBlobShaText } from "./hash";
 export { reconcile, mergeText } from "./reconciler";
 export { computeSnapshot } from "./snapshot";
-export { isTrackedPath } from "./tracked-path";
+export { isTrackedPath, hasAnyVaultConfigSync } from "./tracked-path";
 export { scan, readFileState } from "./scanner";
 export { classifyContent } from "./classify";
 export { applyMutations } from "./applier";
