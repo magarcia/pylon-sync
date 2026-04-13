@@ -1,14 +1,14 @@
 {
-	"name": "@pylon-sync/provider-github",
+	"name": "@pylon-sync/auth-github",
 	"version": "0.0.1",
-	"description": "GitHub provider for pylon-sync using the REST API",
+	"description": "GitHub App device flow authentication for pylon-sync",
 	"type": "module",
 	"license": "MIT",
 	"author": "Martin Garcia",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/magarcia/pylon-sync.git",
-		"directory": "packages/provider-github"
+		"directory": "packages/auth-github"
 	},
 	"main": "src/index.ts",
 	"types": "src/index.ts",
@@ -19,9 +19,7 @@
 		"build": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@pylon-sync/auth-github": "workspace:*",
-		"@pylon-sync/core": "workspace:*",
-		"fflate": "^0.8.2"
+		"@pylon-sync/core": "workspace:*"
 	},
 	"devDependencies": {
 		"typescript": "^5.7.0",

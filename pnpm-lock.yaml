@@ -12,6 +12,19 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(vitest@3.2.4(@types/node@20.19.37))
 
+  packages/auth-github:
+    dependencies:
+      '@pylon-sync/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@20.19.37)
+
   packages/cli:
     dependencies:
       '@pylon-sync/core':
@@ -61,6 +74,9 @@ importers:
 
   packages/obsidian-plugin:
     dependencies:
+      '@pylon-sync/auth-github':
+        specifier: workspace:*
+        version: link:../auth-github
       '@pylon-sync/core':
         specifier: workspace:*
         version: link:../core
@@ -89,6 +105,9 @@ importers:
 
   packages/provider-github:
     dependencies:
+      '@pylon-sync/auth-github':
+        specifier: workspace:*
+        version: link:../auth-github
       '@pylon-sync/core':
         specifier: workspace:*
         version: link:../core

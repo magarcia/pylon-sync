@@ -1,16 +1,20 @@
 import { Plugin, Platform, Notice } from "obsidian";
 import type { SyncSettings, PluginData, SyncState, SyncResult, Provider } from "@pylon-sync/core";
-import { SyncEngine, SyncScheduler } from "@pylon-sync/core";
+import { SyncEngine, SyncScheduler, hasAnyVaultConfigSync } from "@pylon-sync/core";
 import { GitHubProvider, GitHubApiError, RateLimitError } from "@pylon-sync/provider-github";
 import { S3Provider } from "@pylon-sync/provider-s3";
 import type { S3Config } from "@pylon-sync/provider-s3";
+import type { TokenProvider } from "@pylon-sync/auth-github";
+import { PYLON_SYNC_CLIENT_ID, TokenRefreshError } from "@pylon-sync/auth-github";
 import { VaultFileSystem } from "./vault-fs";
 import { ObsidianHttpClient } from "./obsidian-http";
 import { StatusBar } from "./ui/status-bar";
 import { PylonSyncSettingTab, DEFAULT_SETTINGS } from "./ui/settings";
+import { GitHubAuthManager, type SecretStore } from "./auth/github-auth-manager";
 import {
   showSyncResult,
   showAuthError,
+  showPermissionError,
   showRateLimitError,
   showSyncConflictWarning,
 } from "./ui/notices";
@@ -35,6 +39,8 @@ export default class PylonSyncPlugin extends Plugin {
   token: string = "";
   s3AccessKeyId: string = "";
   s3SecretAccessKey: string = "";
+  // Set lazily when the plugin uses GitHub App auth. Settings UI reads this.
+  authManager: GitHubAuthManager | null = null;
   private pluginData: PluginData = {
     version: 1,
     snapshot: {},
@@ -100,6 +106,38 @@ export default class PylonSyncPlugin extends Plugin {
     await this.saveSecret(S3_SECRET_KEY_KEY, secretAccessKey);
   }
 
+  // Secret store wrapper that the auth manager uses. Delegates to the
+  // existing loadSecret/saveSecret helpers so OAuth tokens live next to
+  // the PAT in SecretStorage (with localStorage fallback).
+  private buildSecretStore(): SecretStore {
+    return {
+      load: (key) => this.loadSecret(key),
+      save: (key, value) => this.saveSecret(key, value),
+      delete: async (key) => {
+        await this.saveSecret(key, "");
+      },
+    };
+  }
+
+  ensureAuthManager(): GitHubAuthManager {
+    if (this.authManager) return this.authManager;
+    const clientId =
+      this.settings.githubCustomClientId.trim() || PYLON_SYNC_CLIENT_ID;
+    this.authManager = new GitHubAuthManager({
+      http: new ObsidianHttpClient(),
+      store: this.buildSecretStore(),
+      clientId,
+      host: this.settings.githubHost,
+    });
+    return this.authManager;
+  }
+
+  // Called by the settings UI when the user changes host / clientId /
+  // signs out — force a fresh instance with the new config.
+  resetAuthManager(): void {
+    this.authManager = null;
+  }
+
   async onload(): Promise<void> {
     log("Loading plugin...");
     await this.loadSettings();
@@ -108,6 +146,18 @@ export default class PylonSyncPlugin extends Plugin {
     this.s3AccessKeyId = s3Creds.accessKeyId;
     this.s3SecretAccessKey = s3Creds.secretAccessKey;
     await this.loadPluginData();
+
+    // Eagerly initialize the auth manager so isProviderConfigured() can
+    // check hasTokenSet synchronously. ensureLoaded() inside getAccessToken()
+    // is a no-op after this.
+    if (
+      this.settings.provider === "github" &&
+      this.settings.githubAuthMethod === "github-app"
+    ) {
+      const mgr = this.ensureAuthManager();
+      await mgr.isSignedIn();
+    }
+
     log("Settings loaded — provider:", this.settings.provider);
     log("Plugin data — syncCount:", this.pluginData.syncCount, "cursor:", this.pluginData.cursor ? "present" : "none", "snapshot entries:", Object.keys(this.pluginData.snapshot).length);
 
@@ -182,7 +232,14 @@ export default class PylonSyncPlugin extends Plugin {
 
   isProviderConfigured(): boolean {
     if (this.settings.provider === "github") {
-      return Boolean(this.token && this.settings.githubRepo);
+      if (!this.settings.githubRepo) return false;
+      if (this.settings.githubAuthMethod === "pat") {
+        return Boolean(this.token);
+      }
+      // github-app: check if the auth manager has a loaded token set.
+      // The manager is initialized eagerly in onload(), so hasTokenSet
+      // reflects the actual stored state by the time initSync() runs.
+      return Boolean(this.authManager?.hasTokenSet);
     }
     return Boolean(
       this.s3AccessKeyId &&
@@ -208,12 +265,24 @@ export default class PylonSyncPlugin extends Plugin {
       return new S3Provider(config, http);
     }
 
+    const auth: TokenProvider =
+      this.settings.githubAuthMethod === "github-app"
+        ? (() => {
+            const manager = this.ensureAuthManager();
+            return {
+              getToken: () => manager.getAccessToken(),
+              onUnauthorized: () => manager.forceRefresh(),
+            };
+          })()
+        : this.token;
+
     return new GitHubProvider(
       {
-        token: this.token,
+        auth,
         repo: this.settings.githubRepo,
         branch: this.settings.branch,
         commitMessage: this.settings.commitMessage,
+        host: this.settings.githubHost,
       },
       http,
     );
@@ -223,7 +292,7 @@ export default class PylonSyncPlugin extends Plugin {
     log("initSync — provider:", this.settings.provider);
     this.teardownSync();
 
-    const vaultFs = new VaultFileSystem(this.app.vault, this.settings.syncObsidianSettings, this.settings.includePaths);
+    const vaultFs = new VaultFileSystem(this.app.vault, hasAnyVaultConfigSync(this.settings), this.settings.includePaths);
     const provider = this.createProvider();
 
     this.syncEngine = new SyncEngine(
@@ -363,12 +432,21 @@ export default class PylonSyncPlugin extends Plugin {
     if (result.status === "error" && result.error) {
       const isGitHubAuth =
         result.error instanceof GitHubApiError && result.error.status === 401;
+      const isGitHubForbidden =
+        result.error instanceof GitHubApiError && result.error.status === 403;
       const isRateLimit = result.error instanceof RateLimitError;
+      const isTokenRefresh = result.error instanceof TokenRefreshError;
 
-      if (isGitHubAuth) {
+      if (isTokenRefresh) {
+        // GitHub App refresh token expired or was revoked. User needs to
+        // sign in again from settings.
+        showAuthError();
+      } else if (isGitHubAuth) {
         showAuthError();
       } else if (isRateLimit) {
         showRateLimitError(result.error.resetAt);
+      } else if (isGitHubForbidden) {
+        showPermissionError();
       } else {
         showSyncResult(result);
       }
@@ -397,8 +475,20 @@ export default class PylonSyncPlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     const data = await this.loadData();
+    const hadGitHubAuthMethod =
+      data?.settings !== undefined && data.settings.githubAuthMethod !== undefined;
     if (data?.settings) {
       this.settings = { ...DEFAULT_SETTINGS, ...data.settings };
+    }
+    // Alpha migration: existing users who were already using a PAT should
+    // stay on PAT mode by default. Only apply this migration on first upgrade
+    // (when githubAuthMethod wasn't in the stored settings yet).
+    if (!hadGitHubAuthMethod) {
+      const existingToken = await this.loadToken();
+      if (existingToken) {
+        log("Alpha migration: existing PAT detected, defaulting to PAT auth");
+        this.settings.githubAuthMethod = "pat";
+      }
     }
     this.lastCredentials = this.buildCredentialsKey();
   }
@@ -425,7 +515,11 @@ export default class PylonSyncPlugin extends Plugin {
     if (this.settings.provider === "s3") {
       return `s3:${this.s3AccessKeyId}:${this.settings.s3Bucket}:${this.settings.s3Endpoint}:${this.settings.s3Region}:${this.settings.s3Prefix}`;
     }
-    return `github:${this.token}:${this.settings.githubRepo}:${this.settings.branch}`;
+    const authKey =
+      this.settings.githubAuthMethod === "github-app"
+        ? `app:${this.settings.githubCustomClientId}`
+        : `pat:${this.token.length}:${this.token.slice(-4)}`;
+    return `github:${this.settings.githubHost}:${authKey}:${this.settings.githubRepo}:${this.settings.branch}`;
   }
 
   private async loadPluginData(): Promise<void> {

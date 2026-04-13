@@ -24,6 +24,13 @@ export function showAuthError(): void {
   );
 }
 
+export function showPermissionError(): void {
+  new Notice(
+    "Pylon Sync: The token does not have write access to this repository. Update your token to include Contents: Read and write permission, or install the Pylon Sync GitHub App on this repo.",
+    0,
+  );
+}
+
 export function showRateLimitError(resetAt: Date): void {
   const time = resetAt.toLocaleTimeString();
   new Notice(`Pylon Sync: Rate limit exceeded. Resets at ${time}.`, 0);

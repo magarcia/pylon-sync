@@ -223,6 +223,210 @@ describe("GitHubApi.rest", () => {
   });
 });
 
+describe("GitHubApi.rest with TokenProvider function", () => {
+  it("should call getToken() when token is a provider object", async () => {
+    mockResponse(200);
+    const getToken = vi.fn().mockResolvedValue("ghu_provider_token");
+
+    await api.rest("GET", "/user", { getToken });
+
+    expect(getToken).toHaveBeenCalledOnce();
+    expect(mockHttp.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "token ghu_provider_token",
+        }),
+      }),
+    );
+  });
+
+  it("should retry once with onUnauthorized() after a 401", async () => {
+    mockHttp.request
+      .mockResolvedValueOnce({
+        status: 401,
+        headers: {},
+        json: { message: "Bad credentials" },
+        text: "",
+        arrayBuffer: new ArrayBuffer(0),
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        json: { login: "user" },
+        text: "",
+        arrayBuffer: new ArrayBuffer(0),
+      });
+
+    const getToken = vi.fn().mockResolvedValue("ghu_old_token");
+    const onUnauthorized = vi.fn().mockResolvedValue("ghu_new_token");
+
+    const result = await api.rest("GET", "/user", { getToken, onUnauthorized });
+
+    expect(result.status).toBe(200);
+    expect(getToken).toHaveBeenCalledOnce();
+    expect(onUnauthorized).toHaveBeenCalledOnce();
+    // Second call should use the refreshed token.
+    expect(mockHttp.request.mock.calls[1]![0]).toMatchObject({
+      headers: expect.objectContaining({
+        Authorization: "token ghu_new_token",
+      }),
+    });
+  });
+
+  it("should NOT retry on 401 when token is a string (PAT)", async () => {
+    mockResponse(401, { message: "Bad credentials" });
+
+    await expect(
+      api.rest("GET", "/user", TOKEN),
+    ).rejects.toThrow(GitHubApiError);
+
+    expect(mockHttp.request).toHaveBeenCalledOnce();
+  });
+
+  it("should NOT retry on 401 when provider has no onUnauthorized", async () => {
+    mockResponse(401, { message: "Bad credentials" });
+    const getToken = vi.fn().mockResolvedValue("ghu_token");
+
+    await expect(
+      api.rest("GET", "/user", { getToken }),
+    ).rejects.toThrow(GitHubApiError);
+
+    expect(getToken).toHaveBeenCalledOnce();
+  });
+
+  it("should give up after one retry even if second attempt also returns 401", async () => {
+    mockHttp.request.mockResolvedValue({
+      status: 401,
+      headers: {},
+      json: { message: "Bad credentials" },
+      text: "",
+      arrayBuffer: new ArrayBuffer(0),
+    });
+
+    const getToken = vi.fn().mockResolvedValue("ghu_old");
+    const onUnauthorized = vi.fn().mockResolvedValue("ghu_new");
+
+    await expect(
+      api.rest("GET", "/user", { getToken, onUnauthorized }),
+    ).rejects.toThrow(GitHubApiError);
+
+    expect(mockHttp.request).toHaveBeenCalledTimes(2);
+    expect(onUnauthorized).toHaveBeenCalledOnce();
+  });
+});
+
+describe("GitHubApi with custom host", () => {
+  it("should use api.github.com for github.com host", async () => {
+    mockResponse(200);
+    const customApi = new GitHubApi(mockHttp, "github.com");
+
+    await customApi.rest("GET", "/user", TOKEN);
+
+    expect(mockHttp.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://api.github.com/user",
+      }),
+    );
+  });
+
+  it("should use <host>/api/v3 for GHES host", async () => {
+    mockResponse(200);
+    const ghesApi = new GitHubApi(mockHttp, "ghes.example.com");
+
+    await ghesApi.rest("GET", "/user", TOKEN);
+
+    expect(mockHttp.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://ghes.example.com/api/v3/user",
+      }),
+    );
+  });
+
+  it("should use api.<host> for *.ghe.com data-residency hosts", async () => {
+    mockResponse(200);
+    const gheApi = new GitHubApi(mockHttp, "acme.ghe.com");
+
+    await gheApi.rest("GET", "/user", TOKEN);
+
+    expect(mockHttp.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://api.acme.ghe.com/user",
+      }),
+    );
+  });
+});
+
+describe("GitHubApi.downloadZip with TokenProvider", () => {
+  it("should call getToken() for token provider", async () => {
+    mockResponse(200);
+    const getToken = vi.fn().mockResolvedValue("ghu_provider_token");
+
+    await api.downloadZip("owner", "repo", "main", { getToken });
+
+    expect(getToken).toHaveBeenCalledOnce();
+    expect(mockHttp.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "https://api.github.com/repos/owner/repo/zipball/main",
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: "token ghu_provider_token",
+        }),
+      }),
+    );
+  });
+
+  it("should retry once with onUnauthorized() after a 401", async () => {
+    mockHttp.request
+      .mockResolvedValueOnce({
+        status: 401,
+        headers: {},
+        json: {},
+        text: "",
+        arrayBuffer: new ArrayBuffer(0),
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        headers: {},
+        json: {},
+        text: "",
+        arrayBuffer: new ArrayBuffer(8),
+      });
+
+    const getToken = vi.fn().mockResolvedValue("ghu_old_token");
+    const onUnauthorized = vi.fn().mockResolvedValue("ghu_new_token");
+
+    const result = await api.downloadZip("owner", "repo", "main", {
+      getToken,
+      onUnauthorized,
+    });
+
+    expect(getToken).toHaveBeenCalledOnce();
+    expect(onUnauthorized).toHaveBeenCalledOnce();
+    expect(mockHttp.request).toHaveBeenCalledTimes(2);
+    expect(mockHttp.request.mock.calls[1]![0]).toMatchObject({
+      headers: expect.objectContaining({
+        Authorization: "token ghu_new_token",
+      }),
+    });
+    expect(result.byteLength).toBe(8);
+  });
+
+  it("should NOT retry on 401 when token is a string", async () => {
+    mockHttp.request.mockResolvedValueOnce({
+      status: 401,
+      headers: {},
+      json: {},
+      text: "",
+      arrayBuffer: new ArrayBuffer(0),
+    });
+
+    const result = await api.downloadZip("owner", "repo", "main", TOKEN);
+
+    expect(mockHttp.request).toHaveBeenCalledOnce();
+    expect(result.byteLength).toBe(0);
+  });
+});
+
 describe("GitHubApi.graphql", () => {
   it("should send POST to /graphql with query and variables", async () => {
     mockResponse(200, { data: { repository: { id: "123" } } });

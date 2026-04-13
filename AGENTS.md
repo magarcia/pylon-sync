@@ -2,14 +2,16 @@
 
 ## Project
 
-pnpm monorepo with 4 packages syncing files to GitHub via REST API. No git binary.
+pnpm monorepo with 6 packages syncing files to GitHub via REST API. No git binary.
 
 ## Packages
 
 | Package | Path | Purpose |
 |---------|------|---------|
 | `@pylon-sync/core` | `packages/core/` | Platform-agnostic sync engine, reconciler, types |
+| `@pylon-sync/auth-github` | `packages/auth-github/` | GitHub App device flow, token refresh, host URL resolution |
 | `@pylon-sync/provider-github` | `packages/provider-github/` | GitHub provider (git-tree comparison, opaque cursor) |
+| `@pylon-sync/provider-s3` | `packages/provider-s3/` | S3-compatible storage provider |
 | `@pylon-sync/cli` | `packages/cli/` | CLI companion (Node.js fs + cross-keychain) |
 | `pylon-sync` | `packages/obsidian-plugin/` | Obsidian plugin (Vault API + SecretStorage) |
 
@@ -17,7 +19,7 @@ pnpm monorepo with 4 packages syncing files to GitHub via REST API. No git binar
 
 ```sh
 pnpm install                    # Install all dependencies
-pnpm -r test                    # Run all tests (252 tests)
+pnpm -r test                    # Run all tests (447 tests)
 pnpm -r run typecheck           # Type check all packages
 cd packages/obsidian-plugin && node esbuild.config.mjs production  # Build plugin
 ```
@@ -46,7 +48,7 @@ cd packages/obsidian-plugin && npx vitest run   # Plugin tests only
 - No `as` casts on API responses — define named response types
 - `readonly` on data interfaces (FileEntry, SnapshotEntry, SyncResult)
 - Comments explain "why", never "what"
-- Error classes: `ProviderError` + `PushConflictError` in core; `GitHubApiError` + `RateLimitError` in provider-github
+- Error classes: `ProviderError` + `PushConflictError` in core; `GitHubApiError` + `RateLimitError` in provider-github; `DeviceFlowError` + `TokenRefreshError` in auth-github
 - Shared defaults: import `DEFAULT_SYNC_SETTINGS` from `@pylon-sync/core`, don't duplicate
 
 ## Testing

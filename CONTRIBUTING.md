@@ -9,8 +9,9 @@
 
 ## Project Structure
 
-This is a pnpm monorepo with five packages:
+This is a pnpm monorepo with six packages:
 - `packages/core` — Platform-agnostic sync engine
+- `packages/auth-github` — GitHub App device flow, token refresh, host URL resolution
 - `packages/provider-github` — GitHub API provider
 - `packages/provider-s3` — S3-compatible storage provider (AWS S3, Cloudflare R2, MinIO, Backblaze B2)
 - `packages/cli` — CLI companion tool

@@ -18,6 +18,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@pylon-sync/auth-github": "workspace:*",
 		"@pylon-sync/core": "workspace:*",
 		"@pylon-sync/provider-github": "workspace:*",
 		"@pylon-sync/provider-s3": "workspace:*"

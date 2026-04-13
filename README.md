@@ -2,10 +2,11 @@
 
 > **Early Alpha (v0.0.1)** -- This project is in early alpha and under active development. It has **not** been publicly released or reviewed. Use it only on a **test vault with no real data**. Sync, merge, and conflict resolution have known edge cases that may cause data loss. **Always keep a separate backup of any vault you test with.** Expect breaking changes between versions.
 
-Sync files to remote storage using provider APIs directly -- no git binary needed. Available as an Obsidian plugin (desktop and mobile) and a standalone CLI. Supports GitHub and S3-compatible storage (AWS S3, Cloudflare R2, MinIO, Backblaze B2).
+Sync files to remote storage using provider APIs directly -- no git binary needed. Available as an Obsidian plugin (desktop and mobile) and a standalone CLI.
 
 ## Features
 
+- **Sign in with GitHub** -- one-click OAuth via the Pylon Sync GitHub App; no tokens to manage, per-repo permissions, auto-refreshing credentials
 - **API-only transport** -- uses provider REST APIs directly (GitHub, S3-compatible), no native dependencies
 - **Cross-platform** -- Obsidian plugin works identically on Desktop (Electron), iOS, and Android
 - **Three-way text merge** -- concurrent edits to the same file are merged automatically using diff-match-patch
@@ -13,16 +14,18 @@ Sync files to remote storage using provider APIs directly -- no git binary neede
 - **Binary file support** -- images and attachments sync with configurable conflict resolution (newest, local, or remote wins)
 - **Automatic sync** -- debounced vault events trigger sync; polling on desktop, visibility events on mobile
 - **Configurable ignore patterns** -- glob-based rules to exclude files from sync
+- **GitHub Enterprise Server** -- supports custom hosts via PAT; device flow available with a self-registered GitHub App
 
 ## Packages
 
 > The project codename is "Pylon Sync". The Obsidian plugin appears as "Pylon Sync" in the community plugins list. The npm scope is `@pylon-sync`.
 
-This is a monorepo with five packages:
+This is a monorepo with six packages:
 
 | Package | Description |
 |---------|-------------|
 | `@pylon-sync/core` | Platform-agnostic sync engine, reconciler, scanner, types |
+| `@pylon-sync/auth-github` | GitHub App OAuth device flow, token refresh, host resolution |
 | `@pylon-sync/provider-github` | GitHub provider using git-tree comparison (no metadata files in repo) |
 | `@pylon-sync/provider-s3` | S3-compatible storage provider (AWS S3, Cloudflare R2, MinIO, Backblaze B2) |
 | `@pylon-sync/cli` | CLI companion -- sync directories from the terminal |
@@ -70,7 +73,27 @@ The token can also be set via `GITHUB_TOKEN` environment variable.
 
 ### Setup
 
-#### Create a GitHub Personal Access Token
+There are two ways to authenticate with GitHub. **Sign in with GitHub** is the recommended default.
+
+#### Option A: Sign in with GitHub (recommended)
+
+This uses the [Pylon Sync GitHub App](https://github.com/apps/pylon-sync) with OAuth device flow. The app only requests **Contents: Read and write** permission, scoped to the repositories you choose during installation.
+
+1. Open Obsidian Settings > Pylon Sync
+2. Make sure **Authentication** is set to **Sign in with GitHub**
+3. Click **Sign in with GitHub**
+4. A modal appears with a one-time code. Click **Copy code**, then click **Open GitHub**
+5. Paste the code on the GitHub page and authorize the app
+6. The modal closes automatically once authorized
+7. If you haven't already, click **Install Pylon Sync** to install the GitHub App on the repository you want to sync with (or go to [github.com/apps/pylon-sync/installations/new](https://github.com/apps/pylon-sync/installations/new))
+8. Click **Refresh** to load your installations, then pick a repository from the dropdown
+9. Set the branch (default: `main`) and enable "Auto sync"
+
+The repository dropdown only shows repos you explicitly granted the app access to, so there is no risk of accidentally syncing to the wrong repo. The access token refreshes automatically (8-hour tokens with a 6-month refresh token). If the refresh token expires, the plugin prompts you to sign in again.
+
+#### Option B: Personal Access Token
+
+Use this if you prefer managing tokens yourself, or if you use GitHub Enterprise Server where the Pylon Sync App is not available.
 
 1. Go to [github.com/settings/tokens?type=beta](https://github.com/settings/tokens?type=beta) (fine-grained tokens)
 2. Click "Generate new token"
@@ -79,18 +102,18 @@ The token can also be set via `GITHUB_TOKEN` environment variable.
 5. Under **Repository access**, select the specific repository you want to sync to
 6. Under **Permissions > Repository permissions**, set **Contents** to **Read and write**
 7. Click "Generate token" and copy it
+8. Open Obsidian Settings > Pylon Sync
+9. Set **Authentication** to **Personal access token**
+10. Paste your token into the **GitHub Token** field
+11. Enter your repository in `owner/repo` format (e.g., `magarcia/my-vault`)
+12. Set the branch (default: `main`)
+13. Enable "Auto sync" if you want automatic syncing
 
-#### Configure the plugin
+The settings tab includes a **Verify** button to test your token, a **Browse** dropdown to select from your repositories, and a **Load branches** dropdown to pick a branch.
 
-1. Open Obsidian Settings > Pylon Sync
-2. Paste your token into the **GitHub Token** field
-3. Enter your repository in `owner/repo` format (e.g., `magarcia/my-vault`)
-4. Set the branch (default: `main`)
-5. Enable "Auto sync" if you want automatic syncing
+#### First sync
 
-The settings tab includes a **Verify** button to test your token, a **Browse** dropdown to select from your repositories, and a **Load branches** dropdown to pick a branch. If the repository does not exist yet, the plugin auto-creates it as a private repo on first sync.
-
-The plugin syncs immediately on first setup, pushing your vault to the repo (or pulling from it if the repo already has content). The first sync uses a ZIP archive download for fast bulk retrieval of existing files.
+If the repository does not exist yet, the plugin auto-creates it as a private repo on first sync. The plugin syncs immediately on first setup, pushing your vault to the repo (or pulling from it if the repo already has content). The first sync uses a ZIP archive download for fast bulk retrieval of existing files.
 
 ## How It Works
 
@@ -109,19 +132,51 @@ All provider communication goes through a pluggable `HttpClient` abstraction. Th
 
 ## Settings
 
+### Sync behavior
+
 | Setting | Default | Description |
 |---------|---------|-------------|
-| GitHub Token | -- | Personal access token with Contents read/write scope. Stored securely via SecretStorage (see [Security](#security)). |
-| Repository | -- | Target repo in `owner/repo` format. |
+| Authentication | Sign in with GitHub | Choose between GitHub App OAuth or personal access token. |
+| Repository | -- | Target repo in `owner/repo` format. With GitHub App auth, a dropdown shows only repos the app is installed on. |
 | Branch | `main` | Branch to sync with. |
 | Auto sync | On | Sync automatically on file changes. |
 | Poll interval | 5m | How often to check for remote changes (desktop only). |
 | Debounce delay | 30s | Wait time after last edit before syncing. |
-| Sync .obsidian/ settings | Off | Include `.obsidian/` config files. Excludes `workspace.json`, `workspace-mobile.json`, and `cache/` regardless. |
-| Ignore patterns | -- | Glob patterns, one per line. Matched files are excluded from sync. |
 | Binary conflict resolution | newest | How to resolve concurrent binary edits: `newest`, `local`, or `remote`. |
+
+### Selective sync
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Excluded folders | -- | Glob patterns, one per line. Matched files are excluded from sync. |
+| Sync images | On | Sync image files (bmp, png, jpg, jpeg, gif, svg, webp, avif, ico, tiff, tif). |
+| Sync audio | On | Sync audio files (mp3, webm, wav, m4a, ogg, 3gp, flac, opus, aac, wma, aiff). |
+| Sync videos | On | Sync video files (mp4, mkv, avi, mov, ogv, m4v). |
+| Sync PDFs | On | Sync PDF files. |
+| Sync all other types | On | Sync all other file types not listed above. |
+| Include hidden paths | -- | Dot-files or dot-folders (e.g. `.claude`, `.github`) to include in sync, one per line. |
+
+### Vault configuration sync
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Main settings | Off | Sync editor settings, file & link settings, and other app configuration. |
+| Appearance settings | Off | Sync appearance settings like dark mode, accent color, and font. |
+| Themes and snippets | Off | Sync installed themes and CSS snippets. |
+| Hotkeys | Off | Sync custom hotkeys. |
+| Active core plugin list | Off | Sync which core plugins are enabled. |
+| Core plugin settings | Off | Sync core plugin settings. |
+| Active community plugin list | Off | Sync which community plugins are enabled. |
+| Installed community plugins | Off | Sync installed community plugins (js, css, manifest.json files and their settings). |
+
+### Advanced settings (collapsed by default)
+
+| Setting | Default | Description |
+|---------|---------|-------------|
 | Full scan interval | 50 | Run a full hash scan (ignoring mtime) every N syncs. Catches files with stale timestamps. |
-| Commit message | `vault: sync` | Message used for commits pushed to GitHub. |
+| Commit message | `vault: sync` | Message used for commits pushed to GitHub. Supports `{{date}}`, `{{time}}`, `{{datetime}}`, `{{timestamp}}` template variables. |
+| GitHub host | `github.com` | Override for GitHub Enterprise Server or data-residency instances. |
+| Custom GitHub App client ID | -- | For users who register their own GitHub App on a GHES instance. Enables device flow on non-github.com hosts. |
 
 ## Platform Support
 
@@ -135,9 +190,21 @@ No platform-specific code or native dependencies.
 
 ## Security
 
-The GitHub token is stored securely using Obsidian's SecretStorage API (OS keychain on desktop) with Obsidian's internal local storage as a fallback for older versions. The token is **never** written to `data.json` or any file in the vault.
+All credentials are stored securely using Obsidian's SecretStorage API (OS keychain on desktop) with Obsidian's internal local storage as a fallback for older versions. Credentials are **never** written to `data.json` or any file in the vault.
 
-- Token is stored outside the vault filesystem -- cloud sync (iCloud, Dropbox) cannot access it
+**GitHub App OAuth (default):**
+
+- OAuth tokens (access + refresh) are stored in SecretStorage, outside the vault filesystem
+- Access tokens expire after 8 hours and refresh automatically
+- Refresh tokens expire after 6 months; the plugin prompts you to sign in again when this happens
+- The Pylon Sync GitHub App only requests **Contents: Read and write** permission
+- You control which repositories the app can access via GitHub's installation settings
+- The app's public `client_id` is embedded in the plugin source; no client secret is needed for device flow (by design)
+- Device flow uses the standard [RFC 8628](https://datatracker.ietf.org/doc/html/rfc8628) protocol
+
+**Personal Access Token:**
+
+- Token is stored outside the vault filesystem; cloud sync (iCloud, Dropbox) cannot access it
 - Obsidian Sync does not sync the token
 - Git-based tools cannot commit the token
 - Use a **fine-grained** token scoped to a single repository with only Contents read/write permission

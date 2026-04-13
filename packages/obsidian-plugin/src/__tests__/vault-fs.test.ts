@@ -28,7 +28,7 @@ describe("VaultFileSystem", () => {
       }
     });
 
-    it("with syncObsidianSettings=true should include .obsidian files", async () => {
+    it("with syncVaultConfig=true should include .obsidian files", async () => {
       (vault as any)._seed({ "note.md": "content" });
       (vault.adapter as any)._seed({
         ".obsidian/app.json": '{"theme":"dark"}',
@@ -44,7 +44,7 @@ describe("VaultFileSystem", () => {
       expect(paths).toContain(".obsidian/plugins/foo/main.js");
     });
 
-    it("with syncObsidianSettings=false should NOT include .obsidian files", async () => {
+    it("with syncVaultConfig=false should NOT include .obsidian files", async () => {
       (vault as any)._seed({ "note.md": "content" });
       (vault.adapter as any)._seed({
         ".obsidian/app.json": '{"theme":"dark"}',
@@ -86,7 +86,7 @@ describe("VaultFileSystem", () => {
       expect(paths).toContain(".gitignore");
     });
 
-    it("with includePaths should not duplicate .obsidian when syncObsidianSettings is also true", async () => {
+    it("with includePaths should not duplicate .obsidian when syncVaultConfig is also true", async () => {
       (vault as any)._seed({ "note.md": "content" });
       (vault.adapter as any)._seed({
         ".obsidian/app.json": '{"theme":"dark"}',
