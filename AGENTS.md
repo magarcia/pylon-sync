@@ -19,7 +19,7 @@ pnpm monorepo with 6 packages syncing files to GitHub via REST API. No git binar
 
 ```sh
 pnpm install                    # Install all dependencies
-pnpm -r test                    # Run all tests (393 tests)
+pnpm -r test                    # Run all tests (447 tests)
 pnpm -r run typecheck           # Type check all packages
 cd packages/obsidian-plugin && node esbuild.config.mjs production  # Build plugin
 ```
@@ -48,7 +48,7 @@ cd packages/obsidian-plugin && npx vitest run   # Plugin tests only
 - No `as` casts on API responses — define named response types
 - `readonly` on data interfaces (FileEntry, SnapshotEntry, SyncResult)
 - Comments explain "why", never "what"
-- Error classes: `ProviderError` + `PushConflictError` in core; `GitHubApiError` + `RateLimitError` in provider-github
+- Error classes: `ProviderError` + `PushConflictError` in core; `GitHubApiError` + `RateLimitError` in provider-github; `DeviceFlowError` + `TokenRefreshError` in auth-github
 - Shared defaults: import `DEFAULT_SYNC_SETTINGS` from `@pylon-sync/core`, don't duplicate
 
 ## Testing

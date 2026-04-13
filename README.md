@@ -2,7 +2,7 @@
 
 > **Early Alpha (v0.0.1)** -- This project is in early alpha and under active development. It has **not** been publicly released or reviewed. Use it only on a **test vault with no real data**. Sync, merge, and conflict resolution have known edge cases that may cause data loss. **Always keep a separate backup of any vault you test with.** Expect breaking changes between versions.
 
-Sync files to remote storage using provider APIs directly -- no git binary needed. Available as an Obsidian plugin (desktop and mobile) and a standalone CLI. Supports GitHub and S3-compatible storage (AWS S3, Cloudflare R2, MinIO, Backblaze B2).
+Sync files to remote storage using provider APIs directly -- no git binary needed. Available as an Obsidian plugin (desktop and mobile) and a standalone CLI.
 
 ## Features
 
@@ -132,6 +132,8 @@ All provider communication goes through a pluggable `HttpClient` abstraction. Th
 
 ## Settings
 
+### Sync behavior
+
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Authentication | Sign in with GitHub | Choose between GitHub App OAuth or personal access token. |
@@ -140,17 +142,39 @@ All provider communication goes through a pluggable `HttpClient` abstraction. Th
 | Auto sync | On | Sync automatically on file changes. |
 | Poll interval | 5m | How often to check for remote changes (desktop only). |
 | Debounce delay | 30s | Wait time after last edit before syncing. |
-| Sync .obsidian/ settings | Off | Include `.obsidian/` config files. Excludes `workspace.json`, `workspace-mobile.json`, and `cache/` regardless. |
-| Ignore patterns | -- | Glob patterns, one per line. Matched files are excluded from sync. |
-| Include hidden paths | -- | Dot-files or dot-folders (e.g. `.claude`, `.github`) to include in sync, one per line. |
 | Binary conflict resolution | newest | How to resolve concurrent binary edits: `newest`, `local`, or `remote`. |
-| Full scan interval | 50 | Run a full hash scan (ignoring mtime) every N syncs. Catches files with stale timestamps. |
-| Commit message | `vault: sync` | Message used for commits pushed to GitHub. |
 
-**Advanced settings** (collapsed by default):
+### Selective sync
 
 | Setting | Default | Description |
 |---------|---------|-------------|
+| Excluded folders | -- | Glob patterns, one per line. Matched files are excluded from sync. |
+| Sync images | On | Sync image files (bmp, png, jpg, jpeg, gif, svg, webp, avif, ico, tiff, tif). |
+| Sync audio | On | Sync audio files (mp3, webm, wav, m4a, ogg, 3gp, flac, opus, aac, wma, aiff). |
+| Sync videos | On | Sync video files (mp4, mkv, avi, mov, ogv, m4v). |
+| Sync PDFs | On | Sync PDF files. |
+| Sync all other types | On | Sync all other file types not listed above. |
+| Include hidden paths | -- | Dot-files or dot-folders (e.g. `.claude`, `.github`) to include in sync, one per line. |
+
+### Vault configuration sync
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Main settings | Off | Sync editor settings, file & link settings, and other app configuration. |
+| Appearance settings | Off | Sync appearance settings like dark mode, accent color, and font. |
+| Themes and snippets | Off | Sync installed themes and CSS snippets. |
+| Hotkeys | Off | Sync custom hotkeys. |
+| Active core plugin list | Off | Sync which core plugins are enabled. |
+| Core plugin settings | Off | Sync core plugin settings. |
+| Active community plugin list | Off | Sync which community plugins are enabled. |
+| Installed community plugins | Off | Sync installed community plugins (js, css, manifest.json files and their settings). |
+
+### Advanced settings (collapsed by default)
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Full scan interval | 50 | Run a full hash scan (ignoring mtime) every N syncs. Catches files with stale timestamps. |
+| Commit message | `vault: sync` | Message used for commits pushed to GitHub. Supports `{{date}}`, `{{time}}`, `{{datetime}}`, `{{timestamp}}` template variables. |
 | GitHub host | `github.com` | Override for GitHub Enterprise Server or data-residency instances. |
 | Custom GitHub App client ID | -- | For users who register their own GitHub App on a GHES instance. Enables device flow on non-github.com hosts. |
 

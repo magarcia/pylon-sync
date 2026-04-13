@@ -27,7 +27,7 @@ export class PylonSyncSettingTab extends PluginSettingTab {
   // Whether the user is authenticated (either GitHub App or PAT).
   private isAuthenticated(): boolean {
     if (this.plugin.settings.githubAuthMethod === "github-app") {
-      return Boolean(this.cachedUsername);
+      return Boolean(this.plugin.authManager?.hasTokenSet);
     }
     return Boolean(this.plugin.token);
   }
@@ -45,6 +45,17 @@ export class PylonSyncSettingTab extends PluginSettingTab {
     }
 
     containerEl.createEl("h2", { text: "Pylon Sync" });
+
+    // Eagerly populate the username cache for GitHub App users so the
+    // settings tab shows "Signed in as @user" without requiring interaction.
+    if (
+      this.plugin.settings.githubAuthMethod === "github-app" &&
+      this.plugin.authManager?.hasTokenSet &&
+      !this.cachedUsername
+    ) {
+      void this.refreshUsernameAndRedisplay();
+      return;
+    }
 
     this.renderGitHubSettings(containerEl);
 
@@ -186,7 +197,7 @@ export class PylonSyncSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Sync images")
       .setDesc(
-        "Sync image files with these extensions: bmp, png, jpg, jpeg, gif, svg, webp, avif",
+        "Sync image files with these extensions: bmp, png, jpg, jpeg, gif, svg, webp, avif, ico, tiff, tif",
       )
       .addToggle((toggle) =>
         toggle
@@ -758,7 +769,11 @@ export class PylonSyncSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.githubHost)
           .onChange(async (value) => {
             this.plugin.settings.githubHost = value.trim() || "github.com";
-            // Host change invalidates everything.
+            // Host change invalidates everything. Sign out to avoid
+            // sending the old refresh token to a different host.
+            if (this.plugin.authManager) {
+              await this.plugin.authManager.signOut();
+            }
             this.plugin.resetAuthManager();
             this.cachedInstallations = null;
             this.cachedRepos = null;
@@ -779,6 +794,9 @@ export class PylonSyncSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.githubCustomClientId)
           .onChange(async (value) => {
             this.plugin.settings.githubCustomClientId = value.trim();
+            if (this.plugin.authManager) {
+              await this.plugin.authManager.signOut();
+            }
             this.plugin.resetAuthManager();
             await this.plugin.saveSettings();
           }),
